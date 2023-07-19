@@ -85,6 +85,7 @@
     },
     "dependencies": {
         "esbuild": "^0.18.10",
+        "minimatch": "^9.0.3",
         "postcss": "^8.4.25",
         "roboflow": "^0.2.0",
         "rollup": "^3.25.2",
