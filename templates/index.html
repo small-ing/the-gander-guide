@@ -50,7 +50,33 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script type="text/javascript">
+      let prevWarning = "None"
       $(document).ready(function() {
+        // Function to play text-to-speech
+        function speakText(text, rate = 2.0) {
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = rate; // Set the speech rate
+          window.speechSynthesis.cancel(); // Cancel any ongoing speech synthesis
+          window.speechSynthesis.speak(utterance); // Start the new message
+        }
+
+        // Function to play "Hello World" on a loop
+        async function playTTSLoop() {
+          const response = await fetch("info");
+          const warning = await response.json();
+          console.log("warning: " + warning.info);
+
+          if (warning.info !== prevWarning) {
+            speakText(warning.info);
+            prevWarning = warning.info;
+          }
+
+          setTimeout(playTTSLoop, 100);
+        }
+    
+        // Start the loop when the page is ready
+        playTTSLoop();
+    
         $('input[type="radio"]').on('change', function(event) {
           $('form').submit(); // Submit the form when a radio button is selected
         });
@@ -71,8 +97,6 @@
         });
       });
     </script>
-    
-    
       <div class="video-container">
         <div id="message" class="message">Please turn on your webcam</div>
         <img src="{{ url_for('video_feed') }}" width="60%">

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, Response
+from flask import Flask, render_template, request, make_response, Response, jsonify
 import json
 import cv2
 import os
@@ -36,11 +36,12 @@ python server.py
     to exit 
 ctrl + c
 '''
-global switch, cap, tracker, vision_mode
+global switch, cap, tracker, vision_mode, thing_the_website_should_say
 switch=1
 vision_mode=1 # 1 is normal, 2 is computer vision, 3 is rainbows and unicorns
 port = 5000
 base_url = get_base_url(port)
+thing_the_website_should_say = "None"
 
 # Flask App
 app = Flask(__name__)
@@ -81,8 +82,14 @@ def index():
 def video_feed():
     return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
+# 127.0.0.1:5000/info
+@app.route(f"{base_url}/info/", methods=['GET', 'POST'])
+def return_info():
+    global thing_the_website_should_say  # Add this line to access the global variable
+    return make_response(jsonify({'info': thing_the_website_should_say}), 200)
+   
 def gen_frames():
-    global computer_vision, cap, tracker
+    global computer_vision, cap, tracker, thing_the_website_should_say  
 
 
     while True:
@@ -120,7 +127,8 @@ def gen_frames():
             
             tracker.filter(tracker.normalize(tracker.predict(image)), vibrate="Website", colorful_image=image) # show both vibration info and verbal warning
             image = tracker.website_image
-
+            
+            thing_the_website_should_say = tracker.current_warning
             try:
                 ret, buffer = cv2.imencode('.jpg', image)
                 img_64 = base64.b64encode(buffer)
