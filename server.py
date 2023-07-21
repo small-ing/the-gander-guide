@@ -78,11 +78,6 @@ def index():
         return render_template("index.html")
     return render_template("index.html")
 
-# localhost:5000/info
-@app.route(f"{base_url}/info/", methods=['GET', 'POST'])
-def return_info():
-    return make_request(jsonify({'info': 'This is a test'}), 200)    
-
 @app.route(f"{base_url}/video_feed/")
 def video_feed():
     return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
