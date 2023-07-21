@@ -25,7 +25,7 @@ class MiDaS:
         self.FOV = 70.42 # deg
         self.min_angle_for_prompt = 10 # deg
         self.min_danger_for_problem = 0.4 # arbitrary
-        self.min_danger_for_complete_cover = 0.6 # arbitrary
+        self.min_danger_for_complete_cover = 0.5 # arbitrary
 
         self.website_image = None # to be displayed on MiDaS view on the website
         self.current_warning = "Good"
@@ -63,7 +63,7 @@ class MiDaS:
 
     def find_furniture(self, x, y, image):
         results = self.yolo_model.predict(image)
-        best_furniture = "Object"
+        object = "Object"
         best_confidence = -99999
         
         for result in results:
@@ -74,17 +74,16 @@ class MiDaS:
                 x1, y1, x2, y2 = box[:4].tolist()
                 if x1 < x and x < x2 and y1 < y and y < y2:
                     if c > best_confidence:
-                        best_furniture = result.names[int(label)]
+                        object = result.names[int(label)]
                         best_confidence = c
 
-        return best_furniture
+        return object
 
     def say(self, something, pic = None, pos = None):
         # x and y to check for furniture there
         cv2.circle(self.website_image, pos, 8, (0, 0, 0), 2) # draw a circle to show where furniture is being checked
 
-        self.current_warning = f"Saying {something}!" if pos is None else f"{self.find_furniture(pos[0], pos[1], pic)} {something}" # placeholder for text to speech
-        print("PLACEHOLDER SAY() CALLED: ", self.current_warning) 
+        self.current_warning = something if pos is None else f"{self.find_furniture(pos[0], pos[1], pic)}{something}" # placeholder for text to speech
 
     def predict(self, img):
         input_batch = self.transform(img).to(self.device)
@@ -99,7 +98,6 @@ class MiDaS:
             ).squeeze()
 
         output = prediction.cpu().numpy()
-        #print("Time elapsed: ", time.time() - start)
         return output
     
     # seperate methods to normalize and denormalize depth maps
@@ -114,8 +112,8 @@ class MiDaS:
         output = img * scale_factor
         self.website_image = output
         point = None
-        if vibrate == "No": 
-            self.current_warning = None
+        if vibrate == "Yes":
+            self.current_warning = "None"
         # check for complete obstructedness
         if np.mean(output) > (self.min_danger_for_complete_cover*scale_factor):
             if vibrate != "No":
@@ -167,11 +165,11 @@ class MiDaS:
                         self.states.append(4)
                     elif angle < -self.min_angle_for_prompt:
                         if self.states[-3:] == [5, 5, 5] and self.states[:3].count(5) == 1:
-                            self.say("Turn left")
+                            self.say("Turn slightly left")
                         self.states.append(5)
                     else:
                         if self.states[-3:] == [6, 6, 6] and self.states[:3].count(6) == 1:
-                            self.say("Turn right")
+                            self.say("Turn slightly right")
                         self.states.append(6)
                 if vibrate == "Website":
                     cv2.putText(self.website_image, f"Most recent warning: {self.current_warning}", (6, 12), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 255), 1, cv2.LINE_AA)
