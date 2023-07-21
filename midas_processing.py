@@ -159,6 +159,7 @@ class MiDaS:
                     else:
                         self.amplitude = 64
                         self.period = (1499 * (angle + self.FOV / 2) / self.FOV) + 1 # tell the person where they should turn
+                        self.period = int(self.period)
                 if vibrate != "Yes":
                     if angle**2 < self.min_angle_for_prompt**2:
                         if self.states[-3:] == [4, 4, 4] and self.states[:3].count(4) == 1:
