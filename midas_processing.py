@@ -132,8 +132,8 @@ class MiDaS:
                 cv2.putText(self.website_image, f"Vibration duration: {self.period}", (6, 36), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 255), 1, cv2.LINE_AA)
 
         else:
-
             # Calculate the column-wise sums
+            print(output.shape, self.depth_filter.shape)
             column_sums = np.mean(output * self.depth_filter, axis=0)
             
             if max(column_sums) < (self.min_danger_for_problem * scale_factor):

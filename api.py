@@ -5,6 +5,8 @@ import os
 import numpy as np
 import midas_processing as mp
 import base64
+from PIL import Image
+import io
 
 def get_base_url(port:int) -> str:
     '''
@@ -34,10 +36,10 @@ python server.py
     to exit 
 ctrl + c
 '''
-global tracker, vision_mode
+global tracker
 
 vision_mode = 1 # 1 is normal, 2 is computer vision, 3 is rainbows and unicorns
-port = 5050
+port = 5000
 base_url = get_base_url(port)
 
 # Flask App
@@ -45,99 +47,59 @@ app = Flask(__name__)
 # OpenCV Webcam
 
 tracker = mp.MiDaS()
-  
-def euclid_dist(x1, y1, x2, y2):
-    return np.linalg.norm([x2 - x1, y2 - y1])
-
-# Home Page
-@app.route(f"{base_url}", methods=['GET', 'POST'])
+'''@app.route(f"{base_url}", methods=['GET', 'POST'])
 def index():
-    print("Loading Home Page...")
-    global vision_mode
+    print("got something at base url")
+    return "<p>hello there</p>"'''
+# Home Page
+@app.route(f"{base_url}", methods=['POST'])
+def process():
+    global tracker
+    print("Loaded API...")
     if request.method == 'POST':
         print("Post Request Received")
-        print(request.form)
-        if request.form.get('option') == 'cv':
-            print("Computer Vision Mode")
-            vision_mode = 2
-        elif request.form.get('option') == 'tv':
-            print("Technical Vision Mode")
-            vision_mode = 3
+        app_json = request.get_json(force=True)
+        app_frame = app_json['image']
+        
+        if app_json['vibrate'] == "false":
+            app_vibrate = False
         else:
-            print("Normal Vision Mode")
-            vision_mode = 1
-            
-    
-    elif request.method == 'GET':
-        return render_template("index.html")
-    return render_template("index.html")
-
-@app.route(f"{base_url}/video_feed/")
-def video_feed():
-    return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-def gen_frames():
-    global vision_mode, tracker
-
-
-    while True:
-        if vision_mode == 2: # if computer vision mode
-            results = tracker.yolo_model.predict(image)
-            for result in results:
-                boxes = result.boxes.xyxy
-                labels = result.boxes.cls
-                for box, label in zip(boxes, labels):
-                    x1, y1, x2, y2 = box[:4].tolist()
-                    x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-                    cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    cv2.putText(image, result.names[int(label)], (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                
-            try:
-                ret, buffer = cv2.imencode('.jpg', image)
-                img_64 = base64.b64encode(buffer)
-                #print(img_64)
-                # pred = tracker.identifier.predict(img_64)
-                #print(pred)
-                frame = img_64
-                # frame = buffer.tobytes()
-                yield (b'--frame\r\n'
-                            b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-            except Exception as e:
-                print("exception thrown when trying to encode image")
-                pass
-        elif vision_mode == 3: # if midas view mode (formerly technical)
-            
-            tracker.filter(tracker.normalize(tracker.predict(image)), vibrate="Website", colorful_image=image) # show both vibration info and verbal warning
-            image = tracker.website_image
-
-            try:
-                ret, buffer = cv2.imencode('.jpg', image)
-                img_64 = base64.b64encode(buffer)
-                #print(img_64)
-                # pred = tracker.identifier.predict(img_64)
-                #print(pred)
-                frame = img_64
-                # frame = buffer.tobytes()
-                yield (b'--frame\r\n'
-                            b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-            except Exception as e:
-                print("exception thrown when trying to encode image")
-                pass
+            app_vibrate = True
+        
+        if app_json['indoor'] == "false":
+            app_indoor = False
         else:
-            try:
-                ret, buffer = cv2.imencode('.jpg', image)
-                img_64 = base64.b64encode(buffer)
-                #print(img_64)
-                # pred = tracker.identifier.predict(img_64)
-                #print(pred)
-                frame = img_64
-                # frame = buffer.tobytes()
-                yield (b'--frame\r\n'
-                            b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-            except Exception as e:
-                print("exception thrown when trying to encode image")
-                pass
+            app_indoor = True
+        
+        app_frame = str(app_frame)
+        image = base64.b64decode(app_frame)
+        image = Image.open(io.BytesIO(image))
+        image = np.array(image)
+        #print(image.shape)
+        print("Image Decoded")
+        tracker.filter(tracker.normalize(tracker.predict(image)), vibrate="Website", colorful_image=image)
+        print("Image Processed")
+        
+        warning = tracker.current_warning
+        amplitude = tracker.amplitude
+        duration = tracker.period
+        print("Received Parameters: \n  Vibrate ", app_vibrate,"\n  Indoors ", app_indoor)
+        
+        print("Warning: ", warning)
+        print("Amplitude: ", amplitude)
+        print("Duration: ", duration)
+        pro_image = cv2.imencode('.jpg', tracker.website_image)[1]
+        pro_image = base64.b64encode(pro_image)
+        #print(pro_image)
+        pro_image = str(pro_image)
+        pro_image = pro_image[2:-1]
+        
+        return make_response(jsonify({"image": pro_image, "warning": warning, "amplitude": amplitude, "duration": duration}), 200)
+    else:
+        print("Receiving Get Request?")
+        return make_response(jsonify({"error": "Invalid Request"}), 400)
 
 
 if __name__ == "__main__":
     app.run(debug=True)
+    print("Running")
